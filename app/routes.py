@@ -1,78 +1,84 @@
-from flask import Blueprint, request, jsonify, render_template, send_file
+import math
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle, Circle
+from flask import Blueprint, render_template, request, send_file, jsonify
+from io import BytesIO
 from fpdf import FPDF
-import tempfile
-import os
 
-bp = Blueprint("main", __name__)
+main = Blueprint('main', __name__)
 
-# Concrete strength classes and their characteristic strengths
-CONCRETE_STRENGTHS = {
-    'C12/15': 12, 'C16/20': 16, 'C20/25': 20, 'C25/30': 25,
-    'C30/37': 30, 'C35/45': 35
-}
-
-@bp.route("/")
+@main.route("/", methods=["GET", "POST"])
 def index():
-    return render_template("index.html")
+    result = None
+    plot_image = None
+    if request.method == "POST":
+        try:
+            # Get all input values
+            concrete_class = request.form.get("concrete_class")
+            f_ck = int(concrete_class)  # Adjust based on the form options
+            f_yk_main = float(request.form.get("f_yk_main"))
+            f_yk_shear = float(request.form.get("f_yk_shear"))
+            gamma_c = float(request.form.get("gamma_c"))
+            alpha_cc = float(request.form.get("alpha_cc"))
+            gamma_s = float(request.form.get("gamma_s"))
+            min_cover = float(request.form.get("min_cover"))
+            cover_dev = float(request.form.get("cover_dev"))
+            c_nom = min_cover + cover_dev
+            h = float(request.form.get("section_depth"))
+            b = float(request.form.get("section_width"))
+            d_w = float(request.form.get("d_w")) if request.form.get("d_w") else 0
 
-@bp.route("/calculate", methods=["POST"])
-def calculate():
-    data = request.json
-    try:
-        # Input parameters from the front end
-        concrete_class = data["concreteClass"]
-        fyk_main = float(data["fykMain"])  # Steel yield strength in N/mm²
-        f_ck = CONCRETE_STRENGTHS.get(concrete_class, 25)  # Concrete strength in MPa
+            # Get reinforcement data
+            tension_layers = []
+            for i in range(1, 7):
+                diameter = request.form.get(f"tension_diameter_{i}")
+                number = request.form.get(f"tension_number_{i}")
+                if diameter and number:
+                    tension_layers.append((float(diameter), int(number)))
 
-        # Section dimensions
-        b = float(data.get("sectionWidth", 300))  # Section width in mm
-        h = float(data.get("sectionDepth", 500))  # Section depth in mm
-        d = h - 50  # Effective depth, assuming 50mm cover (adjust as needed)
+            compression_layers = []
+            for i in range(1, 7):
+                diameter = request.form.get(f"compression_diameter_{i}")
+                number = request.form.get(f"compression_number_{i}")
+                if diameter and number:
+                    compression_layers.append((float(diameter), int(number)))
 
-        # Load data
-        Mu = float(data.get("ultimateMoment", 100)) * 1e6  # Ultimate moment in Nmm
+            # Calculate the reinforcement areas
+            A_s_total = sum(math.pi * (d ** 2) * 0.25 * n for d, n in tension_layers)
+            y_t = sum(A_s * (d / 2) for d, A_s in tension_layers) / A_s_total if A_s_total > 0 else 0
 
-        # Lever arm approximation (for this example, using a typical value of 0.95d)
-        z = 0.95 * d
+            A_sc_total = sum(math.pi * (d ** 2) * 0.25 * n for d, n in compression_layers)
+            y_c = sum(A_s * (d / 2) for d, A_s in compression_layers) / A_sc_total if A_sc_total > 0 else 0
 
-        # Required area of steel (A_s) calculation
-        A_s_req = Mu / (0.87 * fyk_main * z)  # Area of steel required
+            # Effective depths and further calculations
+            d_eff = h - c_nom - d_w - y_t
+            dc_eff = c_nom + d_w + y_c
 
-        # Prepare the result dictionary with output values
-        result = {
-            "Concrete Strength (f_ck)": f_ck,
-            "Section Width (b)": b,
-            "Section Depth (h)": h,
-            "Effective Depth (d)": d,
-            "Ultimate Moment (Mu)": Mu,
-            "Lever Arm (z)": z,
-            "Required Area of Steel (A_s_req)": round(A_s_req, 2)
-        }
-    
-    except Exception as e:
-        result = {"error": str(e)}
-    
-    return jsonify(result)
+            # ... (Include all calculation logic from your Windows app's `calculate` function)
 
-@bp.route("/save_pdf", methods=["POST"])
-def save_pdf():
-    data = request.json  # Receive calculation results data from front end
-    try:
-        # PDF generation with calculation results
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt="RC Beam Design Calculation Results", ln=True, align='C')
-        pdf.ln(10)
-        
-        for key, value in data.items():
-            pdf.cell(200, 10, txt=f"{key}: {value}", ln=True)
+            # Generate a section diagram as in your Windows app
+            fig, ax = plt.subplots(figsize=(4, 4))
+            ax.add_patch(Rectangle((0, 0), b, h, fill=True, facecolor='lightblue', edgecolor='blue'))
+            ax.add_patch(Rectangle((c_nom, c_nom), b - 2 * c_nom, h - 2 * c_nom, fill=False, edgecolor='red', linewidth=d_w / 10))
 
-        # Save to a temporary file and return the PDF
-        pdf_output_path = tempfile.mktemp(suffix=".pdf")
-        pdf.output(pdf_output_path)
-        
-        return send_file(pdf_output_path, as_attachment=True, download_name="RC_Beam_Design.pdf", mimetype="application/pdf")
+            for i, (d_s, A_s) in enumerate(tension_layers):
+                # Calculate spacing and positions for the circles (similar to Windows app)
+                # Code for plotting circles for tension and compression bars
 
-    except Exception as e:
-        return jsonify({"error": str(e)})
+            # Save figure to bytes
+            image_bytes = BytesIO()
+            plt.savefig(image_bytes, format='png')
+            plt.close(fig)
+            image_bytes.seek(0)
+            plot_image = image_bytes.read()
+
+            result = {
+                "section_type": "Doubly Reinforced" if A_sc_total > 0 else "Singly Reinforced",
+                "effective_depth": d_eff,
+                # Add other calculated values here
+            }
+
+        except Exception as e:
+            result = {"error": str(e)}
+
+    return render_template("index.html", result=result, plot_image=plot_image)

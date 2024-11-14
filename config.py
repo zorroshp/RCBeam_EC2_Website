@@ -1,2 +1,4 @@
 class Config:
     DEBUG = True
+    
+

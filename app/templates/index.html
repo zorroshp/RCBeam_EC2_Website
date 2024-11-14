@@ -1,47 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RC Beam Design Tool</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <title>RC Beam Design Input</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="container">
     <h1>RC Beam Design Input</h1>
-    <form id="beamForm">
-      <section>
-        <h2>Material Details</h2>
-        <label for="concreteClass">Concrete Class:</label>
-        <select id="concreteClass">
-          <option value="C12/15">C12/15</option>
-          <option value="C16/20">C16/20</option>
-          <option value="C20/25">C20/25</option>
-          <option value="C25/30">C25/30</option>
-          <option value="C30/37">C30/37</option>
-          <option value="C35/45">C35/45</option>
-        </select>
-        
-        <label for="fykMain">Main Reinforcement Strength (N/mm²):</label>
-        <input type="number" id="fykMain" value="500">
+    <form action="/" method="POST">
+        <div class="form-group">
+            <label>Concrete Class:</label>
+            <select name="concrete_class">
+                <option value="12">C12/15</option>
+                <option value="16">C16/20</option>
+                <option value="20">C20/25</option>
+                <!-- Add more options as per Eurocode -->
+            </select>
+        </div>
+        <!-- Include other fields for material, section details, loading, reinforcement details -->
 
-        <label for="sectionWidth">Section Width (mm):</label>
-        <input type="number" id="sectionWidth" value="300">
-
-        <label for="sectionDepth">Section Depth (mm):</label>
-        <input type="number" id="sectionDepth" value="500">
-
-        <label for="ultimateMoment">Ultimate Moment (kNm):</label>
-        <input type="number" id="ultimateMoment" value="100">
-      </section>
-
-      <button type="button" onclick="calculateBeam()">Calculate</button>
-      <button type="button" onclick="savePDF()">Save PDF</button>
+        <button type="submit">Calculate</button>
     </form>
-    
-    <div id="result"></div>
-  </div>
-  
-  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+    {% if result %}
+        <div>
+            <h2>Results</h2>
+            <p>Section Type: {{ result.section_type }}</p>
+            <p>Effective Depth: {{ result.effective_depth }} mm</p>
+            <!-- Display other results here -->
+
+            <img src="data:image/png;base64,{{ plot_image|b64encode }}" alt="Section Diagram">
+        </div>
+    {% endif %}
 </body>
 </html>
