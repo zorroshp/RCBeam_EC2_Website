@@ -1,59 +1,38 @@
-async function calculateBeam() {
-    const data = {
-      concreteClass: document.getElementById("concreteClass").value,
-      fykMain: document.getElementById("fykMain").value,
-      sectionWidth: document.getElementById("sectionWidth").value,
-      sectionDepth: document.getElementById("sectionDepth").value,
-      ultimateMoment: document.getElementById("ultimateMoment").value
-    };
-  
-    try {
-      const response = await fetch("/calculate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
+document.getElementById('design-form').onsubmit = async function (e) {
+  e.preventDefault(); // Prevent the default form submission
+
+  // Collect form data and convert it to JSON
+  const formData = new FormData(this);
+  const formJSON = Object.fromEntries(formData.entries());
+
+  // Send the JSON data to the server
+  const response = await fetch("/", {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formJSON),
+  });
+
+  const resultContainer = document.getElementById('result-container');
+  const data = await response.json();
+
+  if (response.ok) {
+      // Display the result data in a formatted way
+      resultContainer.innerHTML = `
+          <h3>Design Summary</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+      `;
+
+      // Repopulate form fields with submitted values to retain data
+      Object.keys(formJSON).forEach(key => {
+          const inputElement = document.querySelector(`[name="${key}"]`);
+          if (inputElement) {
+              inputElement.value = formJSON[key];
+          }
       });
-      const result = await response.json();
-      document.getElementById("result").innerHTML = formatResult(result);
-    } catch (error) {
-      document.getElementById("result").innerText = "Error: " + error;
-    }
+  } else {
+      // Display an error message if the request failed
+      resultContainer.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
   }
-  
-  function formatResult(result) {
-    let html = "<h3>Design Summary</h3><ul>";
-    for (const [key, value] of Object.entries(result)) {
-      html += `<li><b>${key}:</b> ${value}</li>`;
-    }
-    html += "</ul>";
-    return html;
-  }
-  
-  async function savePDF() {
-    const result = document.getElementById("result").innerText;
-    const data = JSON.parse(result.replace(/'/g, '"'));
-    
-    try {
-      const response = await fetch("/save_pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-  
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "RC_Beam_Design.pdf";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-    } catch (error) {
-      alert("Error saving PDF: " + error);
-    }
-  }
-  
+};

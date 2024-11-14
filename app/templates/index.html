@@ -2,35 +2,147 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>RC Beam Design Input</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RC Beam Design</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>RC Beam Design Input</h1>
-    <form action="/" method="POST">
-        <div class="form-group">
-            <label>Concrete Class:</label>
-            <select name="concrete_class">
-                <option value="12">C12/15</option>
-                <option value="16">C16/20</option>
-                <option value="20">C20/25</option>
-                <!-- Add more options as per Eurocode -->
-            </select>
-        </div>
-        <!-- Include other fields for material, section details, loading, reinforcement details -->
+    <div class="container">
+        <h1>RC Beam Design Input</h1>
+        <form method="POST" action="/" enctype="multipart/form-data">
+            <div class="main-grid">
+                <!-- Section for Diagram -->
+                <div class="diagram-section">
+                    {% if plot_image %}
+                    <img src="data:image/png;base64,{{ plot_image }}" alt="Section Diagram">
+                    {% endif %}
+                </div>
 
-        <button type="submit">Calculate</button>
-    </form>
+                <!-- Material Details Input -->
+                <div class="input-group">
+                    <h2>Material Details Input</h2>
+                    <label>Concrete Class:</label>
+                    <select name="concrete_class">
+                        <option value="30">C30/37</option>
+                        <option value="40">C40/50</option>
+                        <option value="50">C50/60</option>
+                        <!-- Add other classes as needed -->
+                    </select>
 
-    {% if result %}
-        <div>
-            <h2>Results</h2>
-            <p>Section Type: {{ result.section_type }}</p>
-            <p>Effective Depth: {{ result.effective_depth }} mm</p>
-            <!-- Display other results here -->
+                    <label>Main Reinforcement Strength (N/mm²):</label>
+                    <input type="text" name="f_yk_main" value="500">
 
-            <img src="data:image/png;base64,{{ plot_image|b64encode }}" alt="Section Diagram">
-        </div>
-    {% endif %}
+                    <label>Shear Reinforcement Strength (N/mm²):</label>
+                    <input type="text" name="f_yk_shear" value="500">
+
+                    <label>Partial Factor for Concrete (γ_c):</label>
+                    <input type="text" name="gamma_c" value="1.5">
+
+                    <label>Compressive Strength Coefficient (α_cc):</label>
+                    <input type="text" name="alpha_cc" value="0.85">
+
+                    <label>Partial Factor for Steel (γ_s):</label>
+                    <input type="text" name="gamma_s" value="1.15">
+                </div>
+
+                <!-- Section Details Input -->
+                <div class="input-group">
+                    <h2>Section Details Input</h2>
+                    <label>Minimum Cover (mm):</label>
+                    <input type="text" name="min_cover" value="30">
+
+                    <label>Cover Deviation (mm):</label>
+                    <input type="text" name="cover_dev" value="10">
+
+                    <label>Section Depth (mm):</label>
+                    <input type="text" name="section_depth" value="500">
+
+                    <label>Section Width (mm):</label>
+                    <input type="text" name="section_width" value="300">
+
+                    <label>Redistribution Percentage (%):</label>
+                    <input type="text" name="rdp" value="15">
+                </div>
+
+                <!-- Design Loading Input -->
+                <div class="input-group">
+                    <h2>Design Loading Input</h2>
+                    <label>SLS M_Ed (kNm):</label>
+                    <input type="text" name="sls_m_ed" value="0">
+
+                    <label>ULS M_Ed (kNm):</label>
+                    <input type="text" name="uls_m_ed" value="500">
+
+                    <label>V_Ed (kN):</label>
+                    <input type="text" name="v_ed" value="0">
+
+                    <label>V_Ef (kN):</label>
+                    <input type="text" name="v_ef" value="0">
+
+                    <label>T_Ed (kN):</label>
+                    <input type="text" name="t_ed" value="0">
+
+                    <label>T_Ef (kN):</label>
+                    <input type="text" name="t_ef" value="0">
+                </div>
+
+                <!-- Tension Reinforcement Input -->
+                <div class="input-group">
+                    <h2>Tension Reinforcement Details Input</h2>
+                    {% for i in range(1, 7) %}
+                    <label>Layer {{ i }} Diameter:</label>
+                    <input type="text" name="tension_diameter_{{ i }}">
+                    <label>Number of Bars:</label>
+                    <input type="text" name="tension_number_{{ i }}">
+                    {% endfor %}
+                </div>
+
+                <!-- Compression Reinforcement Input -->
+                <div class="input-group">
+                    <h2>Compression Reinforcement Details Input</h2>
+                    {% for i in range(1, 7) %}
+                    <label>Layer {{ i }} Diameter:</label>
+                    <input type="text" name="compression_diameter_{{ i }}">
+                    <label>Number of Bars:</label>
+                    <input type="text" name="compression_number_{{ i }}">
+                    {% endfor %}
+                </div>
+
+                <!-- Shear Reinforcement Input -->
+                <div class="input-group">
+                    <h2>Shear Reinforcement Details Input</h2>
+                    <label>Shear Reinforcement Diameter (mm):</label>
+                    <input type="text" name="d_w">
+
+                    <label>Number of Legs:</label>
+                    <input type="text" name="n_l" value="2">
+
+                    <label>Spacing (mm):</label>
+                    <input type="text" name="s" value="150">
+                </div>
+            </div>
+
+            <!-- Calculate and Save PDF Buttons -->
+            <div class="button-group">
+                <button type="submit">Calculate</button>
+                <button type="button" onclick="window.print()">Save PDF</button>
+            </div>
+
+            <!-- Results Display -->
+            <div class="results">
+                {% if result %}
+                    {% if result.error %}
+                        <p class="error">{{ result.error }}</p>
+                    {% else %}
+                        <h3>Results:</h3>
+                        <p>Section Type: {{ result.section_type }}</p>
+                        <p>Effective Depth: {{ result.effective_depth }}</p>
+                        <p>Effective Cover Depth: {{ result.dc_eff }}</p>
+                        <!-- Add other result fields here -->
+                    {% endif %}
+                {% endif %}
+            </div>
+        </form>
+    </div>
 </body>
 </html>
